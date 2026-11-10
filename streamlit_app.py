@@ -14,7 +14,7 @@ st.set_page_config(
     layout="wide",
 )
 
-SCAN_CACHE_SCHEMA_VERSION = 2
+SCAN_CACHE_SCHEMA_VERSION = 3
 
 @st.cache_data(ttl="15m", max_entries=2, show_spinner=False)
 def load_scan(schema_version: int):
@@ -181,6 +181,52 @@ else:
             "Most recent and previous dates each filtered stock reached its "
             "52-week-high price"
         ),
+    )
+    st.subheader("52-week high dates and values")
+    date_value_table = high_dates[
+        [
+            "symbol",
+            "company",
+            "high_52w_date",
+            "high_52w",
+            "previous_high_date",
+        ]
+    ].copy()
+    date_value_table["previous_high_value"] = filtered["previous_high_value"]
+    date_value_table["high_52w_date"] = pd.to_datetime(
+        date_value_table["high_52w_date"]
+    ).dt.strftime("%b %d, %Y")
+    date_value_table["previous_high_date"] = (
+        pd.to_datetime(date_value_table["previous_high_date"], errors="coerce")
+        .dt.strftime("%b %d, %Y")
+        .fillna("No previous occurrence")
+    )
+    st.dataframe(
+        date_value_table.rename(
+            columns={
+                "symbol": "Symbol",
+                "company": "Company",
+                "high_52w_date": "Most recent high date",
+                "high_52w": "Most recent 52-week high (₹)",
+                "previous_high_date": "Previous occurrence date",
+                "previous_high_value": "Previous occurrence high (₹)",
+            }
+        ),
+        hide_index=True,
+        column_config={
+            "Most recent 52-week high (₹)": st.column_config.NumberColumn(
+                format="₹%.2f"
+            ),
+            "Previous occurrence high (₹)": st.column_config.NumberColumn(
+                format="₹%.2f"
+            ),
+        },
+        alt="Most recent and previous 52-week-high dates and values by stock",
+    )
+    st.caption(
+        "The previous occurrence is the most recent earlier session when the "
+        "stock matched its current 52-week-high price. Previous occurrence "
+        "fields are empty when there was no earlier match in the 52-week window."
     )
 
 left, right = st.columns([3, 2])

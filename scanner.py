@@ -131,6 +131,11 @@ def analyze_history(
             if len(high_dates) > 1
             else None
         ),
+        "previous_high_value": (
+            float(bars.loc[high_dates[-2], "High"])
+            if len(high_dates) > 1
+            else None
+        ),
         "breakout_pct": (latest_high / prior_high - 1) * 100,
         "is_breakout": latest_high > prior_high,
         "session_date": pd.Timestamp(bars.index[-1]).date().isoformat(),
