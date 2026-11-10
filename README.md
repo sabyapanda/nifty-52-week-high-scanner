@@ -11,7 +11,7 @@ python -m pip install -r requirements.txt
 streamlit run streamlit_app.py
 ```
 
-The app loads the constituent list from Nifty Indices and adjusted daily price
+The app loads the constituent list from NSE archives and adjusted daily price
 history from Yahoo Finance. Data is cached for 15 minutes; use **Refresh market
 data** to request a new scan. Quotes may be delayed, and an intraday breakout
 is provisional until the session closes. Stocks without at least 252 prior

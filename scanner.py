@@ -8,16 +8,18 @@ from io import StringIO
 import pandas as pd
 import requests
 
-CONSTITUENTS_URL = (
-    "https://www.niftyindices.com/Index_Constituent/ind_nifty200list.csv"
-)
+CONSTITUENTS_URL = "https://archives.nseindia.com/content/indices/ind_nifty200list.csv"
 
 
 def load_constituents() -> pd.DataFrame:
     """Load and validate the official Nifty 200 constituent list."""
     response = requests.get(
         CONSTITUENTS_URL,
-        headers={"User-Agent": "Mozilla/5.0 Nifty200HighScanner/1.0"},
+        headers={
+            "User-Agent": "Mozilla/5.0 Nifty200HighScanner/1.0",
+            "Accept": "text/csv,*/*",
+            "Referer": "https://www.nseindia.com/",
+        },
         timeout=20,
     )
     response.raise_for_status()
