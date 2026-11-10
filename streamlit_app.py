@@ -14,7 +14,7 @@ st.set_page_config(
     layout="wide",
 )
 
-SCAN_CACHE_SCHEMA_VERSION = 3
+SCAN_CACHE_SCHEMA_VERSION = 4
 
 @st.cache_data(ttl="15m", max_entries=2, show_spinner=False)
 def load_scan(schema_version: int):
@@ -116,25 +116,28 @@ else:
             "symbol",
             "company",
             "high_52w_date",
-            "previous_high_date",
+            "prior_52w_high_date",
             "high_52w",
+            "prior_52w_high",
             "is_breakout",
         ]
     ].copy()
-    chart_dates = high_dates.melt(
-        id_vars=["symbol", "company", "high_52w", "is_breakout"],
-        value_vars=["high_52w_date", "previous_high_date"],
-        var_name="date_type",
-        value_name="date",
-    )
-    chart_dates["date"] = pd.to_datetime(chart_dates["date"], errors="coerce")
-    chart_dates = chart_dates.dropna(subset=["date"])
-    chart_dates["date_type"] = chart_dates["date_type"].map(
-        {
-            "high_52w_date": "Most recent high",
-            "previous_high_date": "Previous occurrence",
+    latest_points = high_dates[
+        ["symbol", "company", "high_52w_date", "high_52w", "is_breakout"]
+    ].rename(columns={"high_52w_date": "date", "high_52w": "high_value"})
+    latest_points["date_type"] = "Most recent 52-week high"
+    prior_points = high_dates[
+        ["symbol", "company", "prior_52w_high_date", "prior_52w_high", "is_breakout"]
+    ].rename(
+        columns={
+            "prior_52w_high_date": "date",
+            "prior_52w_high": "high_value",
         }
     )
+    prior_points["date_type"] = "Previous 52-week high"
+    chart_dates = pd.concat([latest_points, prior_points], ignore_index=True)
+    chart_dates["date"] = pd.to_datetime(chart_dates["date"], errors="coerce")
+    chart_dates = chart_dates.dropna(subset=["date"])
     high_date_chart = (
         alt.Chart(chart_dates)
         .mark_circle(size=85)
@@ -151,9 +154,12 @@ else:
             ),
             color=alt.Color(
                 "date_type:N",
-                title="High date",
+                title="High",
                 scale=alt.Scale(
-                    domain=["Most recent high", "Previous occurrence"],
+                    domain=[
+                        "Most recent 52-week high",
+                        "Previous 52-week high",
+                    ],
                     range=["#60A5FA", "#FBBF24"],
                 ),
             ),
@@ -169,7 +175,7 @@ else:
                     title="Date",
                     format="%b %d, %Y",
                 ),
-                alt.Tooltip("high_52w:Q", title="52-week high (₹)", format=",.2f"),
+                alt.Tooltip("high_value:Q", title="High value (₹)", format=",.2f"),
                 alt.Tooltip("is_breakout:N", title="Fresh breakout"),
             ],
         )
@@ -178,8 +184,8 @@ else:
     st.altair_chart(
         high_date_chart,
         alt=(
-            "Most recent and previous dates each filtered stock reached its "
-            "52-week-high price"
+            "Dates and values of the most recent and previous 52-week highs "
+            "for each filtered stock"
         ),
     )
     st.subheader("52-week high dates and values")
@@ -189,44 +195,38 @@ else:
             "company",
             "high_52w_date",
             "high_52w",
-            "previous_high_date",
+            "prior_52w_high_date",
+            "prior_52w_high",
         ]
     ].copy()
-    date_value_table["previous_high_value"] = filtered["previous_high_value"]
     date_value_table["high_52w_date"] = pd.to_datetime(
         date_value_table["high_52w_date"]
     ).dt.strftime("%b %d, %Y")
-    date_value_table["previous_high_date"] = (
-        pd.to_datetime(date_value_table["previous_high_date"], errors="coerce")
-        .dt.strftime("%b %d, %Y")
-        .fillna("No previous occurrence")
+    date_value_table["prior_52w_high_date"] = pd.to_datetime(
+        date_value_table["prior_52w_high_date"]
+    ).dt.strftime("%b %d, %Y")
+    date_value_table = date_value_table.rename(
+        columns={
+            "symbol": "Symbol",
+            "company": "Company",
+            "high_52w_date": "Most recent high date",
+            "high_52w": "Most recent 52-week high (₹)",
+            "prior_52w_high_date": "Previous high date",
+            "prior_52w_high": "Previous 52-week high (₹)",
+        }
     )
     st.dataframe(
-        date_value_table.rename(
-            columns={
-                "symbol": "Symbol",
-                "company": "Company",
-                "high_52w_date": "Most recent high date",
-                "high_52w": "Most recent 52-week high (₹)",
-                "previous_high_date": "Previous occurrence date",
-                "previous_high_value": "Previous occurrence high (₹)",
-            }
-        ),
+        date_value_table,
         hide_index=True,
         column_config={
             "Most recent 52-week high (₹)": st.column_config.NumberColumn(
                 format="₹%.2f"
             ),
-            "Previous occurrence high (₹)": st.column_config.NumberColumn(
+            "Previous 52-week high (₹)": st.column_config.NumberColumn(
                 format="₹%.2f"
             ),
         },
         alt="Most recent and previous 52-week-high dates and values by stock",
-    )
-    st.caption(
-        "The previous occurrence is the most recent earlier session when the "
-        "stock matched its current 52-week-high price. Previous occurrence "
-        "fields are empty when there was no earlier match in the 52-week window."
     )
 
 left, right = st.columns([3, 2])
@@ -238,10 +238,7 @@ with left:
         display = filtered.assign(
             symbol=filtered["symbol"].map(
                 lambda symbol: f"https://finance.yahoo.com/quote/{symbol}.NS/"
-            ),
-            previous_high_date=filtered["previous_high_date"].fillna(
-                "No previous occurrence"
-            ),
+            )
         )
         st.dataframe(
             display[
@@ -253,8 +250,8 @@ with left:
                     "daily_change_pct",
                     "latest_high",
                     "prior_52w_high",
+                    "prior_52w_high_date",
                     "high_52w_date",
-                    "previous_high_date",
                     "breakout_pct",
                 ]
             ],
@@ -275,15 +272,11 @@ with left:
                 "prior_52w_high": st.column_config.NumberColumn(
                     "Prior 52-week high (₹)", format="₹%.2f"
                 ),
+                "prior_52w_high_date": st.column_config.TextColumn(
+                    "Prior 52-week high date"
+                ),
                 "high_52w_date": st.column_config.TextColumn(
                     "Most recent 52-week high date"
-                ),
-                "previous_high_date": st.column_config.TextColumn(
-                    "Previous occurrence date",
-                    help=(
-                        "The most recent earlier session when the stock matched "
-                        "its current 52-week-high price."
-                    ),
                 ),
                 "breakout_pct": st.column_config.NumberColumn(
                     "Above prior high", format="%+.2f%%"
