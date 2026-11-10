@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 import pandas as pd
 
-from scanner import analyze_history, screen_nifty_200
+from scanner import analyze_history, load_constituents, screen_nifty_200
 
 
 class AnalyzeHistoryTests(unittest.TestCase):
@@ -32,6 +32,27 @@ class AnalyzeHistoryTests(unittest.TestCase):
 
     def test_requires_252_prior_sessions(self):
         self.assertIsNone(analyze_history(self.history.iloc[:252]))
+
+    @patch("scanner.requests.get")
+    def test_loads_constituents_after_metadata_rows(self, get):
+        response = get.return_value
+        response.content = (
+            b"Index,Name,Value\n"
+            b"Nifty,200,Constituents\n"
+            b"Generated,2026-11-10,\n"
+            b"Source,Nifty Indices,\n"
+            b"Metadata,ignored,\n"
+            b"Metadata,ignored,\n"
+            b"Metadata,ignored,\n"
+            b"Company Name,Industry,Symbol,Series,ISIN Code\n"
+            b"Alpha Limited,Technology,ALPHA,EQ,INE000A01000\n"
+            b"Beta Limited,Finance,BETA,EQ,INE000B01000\n"
+        )
+
+        members = load_constituents()
+
+        self.assertEqual(members["Symbol"].tolist(), ["ALPHA", "BETA"])
+        self.assertEqual(members["Company Name"].tolist(), ["Alpha Limited", "Beta Limited"])
 
     @patch("scanner.download_history")
     @patch("scanner.load_constituents")

@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from io import BytesIO
+import csv
+from io import StringIO
 
 import pandas as pd
 import requests
@@ -20,9 +21,27 @@ def load_constituents() -> pd.DataFrame:
         timeout=20,
     )
     response.raise_for_status()
-    members = pd.read_csv(BytesIO(response.content))
-    members.columns = members.columns.str.strip()
+    content = response.content.decode("utf-8-sig")
     required = {"Symbol", "Company Name", "Industry"}
+    header_row = next(
+        (
+            index
+            for index, row in enumerate(csv.reader(StringIO(content)))
+            if required.issubset({field.strip() for field in row})
+        ),
+        None,
+    )
+    if header_row is None:
+        raise ValueError(
+            "The Nifty Indices constituent file does not contain the expected "
+            "CSV header."
+        )
+    members = pd.read_csv(
+        StringIO(content),
+        skiprows=header_row,
+        usecols=lambda column: column.strip() in required,
+    )
+    members.columns = members.columns.str.strip()
     missing = required.difference(members.columns)
     if missing:
         raise ValueError(
