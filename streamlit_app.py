@@ -14,9 +14,10 @@ st.set_page_config(
     layout="wide",
 )
 
+SCAN_CACHE_SCHEMA_VERSION = 2
 
 @st.cache_data(ttl="15m", max_entries=2, show_spinner=False)
-def load_scan():
+def load_scan(schema_version: int):
     return screen_nifty_200()
 
 
@@ -44,7 +45,9 @@ if refresh:
 
 try:
     with st.spinner("Loading Nifty 200 constituents and market data..."):
-        results, not_screened, universe_size = load_scan()
+        results, not_screened, universe_size = load_scan(
+            schema_version=SCAN_CACHE_SCHEMA_VERSION
+        )
 except (requests.RequestException, RuntimeError, ValueError, pd.errors.ParserError) as exc:
     st.error(
         "The scan could not be completed. Check your internet connection and "
