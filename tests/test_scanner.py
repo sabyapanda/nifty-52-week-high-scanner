@@ -23,10 +23,11 @@ class AnalyzeHistoryTests(unittest.TestCase):
         self.assertAlmostEqual(result["breakout_pct"], 1.0)
         self.assertEqual(result["session_date"], "2026-07-20")
         self.assertEqual(result["high_52w_date"], "2026-07-20")
+        self.assertIsNone(result["previous_high_date"])
 
     def test_returns_most_recent_date_of_52_week_high(self):
         self.history.index = pd.date_range("2025-11-10", periods=253)
-        self.history.loc[self.history.index[20], "High"] = 105.0
+        self.history.loc[self.history.index[25], "High"] = 105.0
         self.history.loc[self.history.index[240], "High"] = 105.0
         self.history.loc[self.history.index[-1], "High"] = 99.0
 
@@ -36,6 +37,17 @@ class AnalyzeHistoryTests(unittest.TestCase):
         self.assertEqual(
             result["high_52w_date"], self.history.index[240].date().isoformat()
         )
+        self.assertEqual(
+            result["previous_high_date"], self.history.index[25].date().isoformat()
+        )
+
+    def test_previous_high_date_is_missing_when_high_occurred_once(self):
+        self.history.index = pd.date_range("2025-11-10", periods=253)
+        self.history.loc[self.history.index[-1], "High"] = 101.0
+
+        result = analyze_history(self.history)
+
+        self.assertIsNone(result["previous_high_date"])
 
     def test_does_not_count_equal_or_lower_high_as_breakout(self):
         self.history.loc[252, "High"] = 100.0

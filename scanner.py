@@ -97,7 +97,9 @@ def history_for_symbol(prices: pd.DataFrame, ticker: str) -> pd.DataFrame | None
     return None
 
 
-def analyze_history(history: pd.DataFrame) -> dict[str, float | bool | str] | None:
+def analyze_history(
+    history: pd.DataFrame,
+) -> dict[str, float | bool | str | None] | None:
     """Measure a new high against the preceding 252 daily trading sessions."""
     if not {"High", "Close"}.issubset(history.columns):
         return None
@@ -124,6 +126,11 @@ def analyze_history(history: pd.DataFrame) -> dict[str, float | bool | str] | No
         "prior_52w_high": prior_high,
         "high_52w": high_52w,
         "high_52w_date": pd.Timestamp(high_dates[-1]).date().isoformat(),
+        "previous_high_date": (
+            pd.Timestamp(high_dates[-2]).date().isoformat()
+            if len(high_dates) > 1
+            else None
+        ),
         "breakout_pct": (latest_high / prior_high - 1) * 100,
         "is_breakout": latest_high > prior_high,
         "session_date": pd.Timestamp(bars.index[-1]).date().isoformat(),

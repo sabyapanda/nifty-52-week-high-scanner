@@ -109,29 +109,61 @@ if filtered.empty:
     st.info("No stocks match these filters.")
 else:
     high_dates = filtered[
-        ["symbol", "company", "high_52w_date", "high_52w", "is_breakout"]
+        [
+            "symbol",
+            "company",
+            "high_52w_date",
+            "previous_high_date",
+            "high_52w",
+            "is_breakout",
+        ]
     ].copy()
-    high_dates["high_52w_date"] = pd.to_datetime(high_dates["high_52w_date"])
+    chart_dates = high_dates.melt(
+        id_vars=["symbol", "company", "high_52w", "is_breakout"],
+        value_vars=["high_52w_date", "previous_high_date"],
+        var_name="date_type",
+        value_name="date",
+    )
+    chart_dates["date"] = pd.to_datetime(chart_dates["date"], errors="coerce")
+    chart_dates = chart_dates.dropna(subset=["date"])
+    chart_dates["date_type"] = chart_dates["date_type"].map(
+        {
+            "high_52w_date": "Most recent high",
+            "previous_high_date": "Previous occurrence",
+        }
+    )
     high_date_chart = (
-        alt.Chart(high_dates)
-        .mark_circle(size=85, color="#60A5FA")
+        alt.Chart(chart_dates)
+        .mark_circle(size=85)
         .encode(
             x=alt.X(
-                "high_52w_date:T",
-                title="Date of 52-week high",
+                "date:T",
+                title="Date",
                 axis=alt.Axis(format="%b %d, %Y"),
             ),
             y=alt.Y(
                 "symbol:N",
                 title="Stock",
-                sort=alt.SortField(field="high_52w_date", order="descending"),
+                sort=alt.SortField(field="date", order="descending"),
+            ),
+            color=alt.Color(
+                "date_type:N",
+                title="High date",
+                scale=alt.Scale(
+                    domain=["Most recent high", "Previous occurrence"],
+                    range=["#60A5FA", "#FBBF24"],
+                ),
             ),
             tooltip=[
                 alt.Tooltip("company:N", title="Company"),
                 alt.Tooltip("symbol:N", title="Symbol"),
                 alt.Tooltip(
-                    "high_52w_date:T",
-                    title="Most recent 52-week high",
+                    "date_type:N",
+                    title="High date",
+                ),
+                alt.Tooltip(
+                    "date:T",
+                    title="Date",
                     format="%b %d, %Y",
                 ),
                 alt.Tooltip("high_52w:Q", title="52-week high (₹)", format=",.2f"),
@@ -142,7 +174,10 @@ else:
     )
     st.altair_chart(
         high_date_chart,
-        alt="Most recent date each filtered stock reached its 52-week high",
+        alt=(
+            "Most recent and previous dates each filtered stock reached its "
+            "52-week-high price"
+        ),
     )
 
 left, right = st.columns([3, 2])
@@ -154,7 +189,10 @@ with left:
         display = filtered.assign(
             symbol=filtered["symbol"].map(
                 lambda symbol: f"https://finance.yahoo.com/quote/{symbol}.NS/"
-            )
+            ),
+            previous_high_date=filtered["previous_high_date"].fillna(
+                "No previous occurrence"
+            ),
         )
         st.dataframe(
             display[
@@ -167,6 +205,7 @@ with left:
                     "latest_high",
                     "prior_52w_high",
                     "high_52w_date",
+                    "previous_high_date",
                     "breakout_pct",
                 ]
             ],
@@ -188,7 +227,14 @@ with left:
                     "Prior 52-week high (₹)", format="₹%.2f"
                 ),
                 "high_52w_date": st.column_config.TextColumn(
-                    "Last 52-week high date"
+                    "Most recent 52-week high date"
+                ),
+                "previous_high_date": st.column_config.TextColumn(
+                    "Previous occurrence date",
+                    help=(
+                        "The most recent earlier session when the stock matched "
+                        "its current 52-week-high price."
+                    ),
                 ),
                 "breakout_pct": st.column_config.NumberColumn(
                     "Above prior high", format="%+.2f%%"
