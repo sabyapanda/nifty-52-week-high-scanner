@@ -114,13 +114,16 @@ def analyze_history(history: pd.DataFrame) -> dict[str, float | bool | str] | No
     if prior_high <= 0 or previous_close <= 0:
         return None
 
-    high_52w = max(prior_high, latest_high)
+    window = bars.iloc[-252:]
+    high_52w = float(window["High"].max())
+    high_dates = window.index[window["High"] == high_52w]
     return {
         "price": close,
         "daily_change_pct": (close / previous_close - 1) * 100,
         "latest_high": latest_high,
         "prior_52w_high": prior_high,
         "high_52w": high_52w,
+        "high_52w_date": pd.Timestamp(high_dates[-1]).date().isoformat(),
         "breakout_pct": (latest_high / prior_high - 1) * 100,
         "is_breakout": latest_high > prior_high,
         "session_date": pd.Timestamp(bars.index[-1]).date().isoformat(),

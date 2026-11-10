@@ -2,7 +2,8 @@
 
 A Streamlit dashboard that screens current Nifty 200 constituents for stocks
 whose latest available session high exceeded the highest high in the previous
-252 trading sessions.
+252 trading sessions. It also charts the most recent date each screened stock
+reached its 52-week high.
 
 ## Run locally
 

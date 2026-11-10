@@ -1,5 +1,6 @@
 """Streamlit dashboard for screening Nifty 200 52-week-high breakouts."""
 
+import altair as alt
 import pandas as pd
 import requests
 import streamlit as st
@@ -103,6 +104,47 @@ sort_columns = {
 sort_column, ascending = sort_columns[sort_by]
 filtered = filtered.sort_values(sort_column, ascending=ascending)
 
+st.subheader("Most recent 52-week high by stock")
+if filtered.empty:
+    st.info("No stocks match these filters.")
+else:
+    high_dates = filtered[
+        ["symbol", "company", "high_52w_date", "high_52w", "is_breakout"]
+    ].copy()
+    high_dates["high_52w_date"] = pd.to_datetime(high_dates["high_52w_date"])
+    high_date_chart = (
+        alt.Chart(high_dates)
+        .mark_circle(size=85, color="#60A5FA")
+        .encode(
+            x=alt.X(
+                "high_52w_date:T",
+                title="Date of 52-week high",
+                axis=alt.Axis(format="%b %d, %Y"),
+            ),
+            y=alt.Y(
+                "symbol:N",
+                title="Stock",
+                sort=alt.SortField(field="high_52w_date", order="descending"),
+            ),
+            tooltip=[
+                alt.Tooltip("company:N", title="Company"),
+                alt.Tooltip("symbol:N", title="Symbol"),
+                alt.Tooltip(
+                    "high_52w_date:T",
+                    title="Most recent 52-week high",
+                    format="%b %d, %Y",
+                ),
+                alt.Tooltip("high_52w:Q", title="52-week high (₹)", format=",.2f"),
+                alt.Tooltip("is_breakout:N", title="Fresh breakout"),
+            ],
+        )
+        .properties(height=max(240, min(18 * len(high_dates), 1500)))
+    )
+    st.altair_chart(
+        high_date_chart,
+        alt="Most recent date each filtered stock reached its 52-week high",
+    )
+
 left, right = st.columns([3, 2])
 with left:
     st.subheader("Stocks at fresh 52-week highs" if show_breakouts_only else "Screen results")
@@ -124,6 +166,7 @@ with left:
                     "daily_change_pct",
                     "latest_high",
                     "prior_52w_high",
+                    "high_52w_date",
                     "breakout_pct",
                 ]
             ],
@@ -143,6 +186,9 @@ with left:
                 ),
                 "prior_52w_high": st.column_config.NumberColumn(
                     "Prior 52-week high (₹)", format="₹%.2f"
+                ),
+                "high_52w_date": st.column_config.TextColumn(
+                    "Last 52-week high date"
                 ),
                 "breakout_pct": st.column_config.NumberColumn(
                     "Above prior high", format="%+.2f%%"
